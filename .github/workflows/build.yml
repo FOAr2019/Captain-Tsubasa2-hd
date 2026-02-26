@@ -1,0 +1,79 @@
+name: Build PS2 ISO
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y genisoimage wget xz-utils
+
+    - name: Download prebuilt PS2DEV toolchain
+      run: |
+        sudo mkdir -p /usr/local/ps2dev
+        sudo chmod 777 /usr/local/ps2dev
+        wget -q \
+          https://github.com/ps2dev/ps2dev/releases/latest/download/linux-x86_64-ps2dev.tar.gz \
+          -O /tmp/ps2dev.tar.gz
+        tar -xzf /tmp/ps2dev.tar.gz -C /usr/local/
+        echo "Toolchain contents:"
+        ls /usr/local/ps2dev/
+
+    - name: Setup environment
+      run: |
+        echo "PS2DEV=/usr/local/ps2dev"         >> $GITHUB_ENV
+        echo "PS2SDK=/usr/local/ps2dev/ps2sdk"   >> $GITHUB_ENV
+        echo "/usr/local/ps2dev/bin"             >> $GITHUB_PATH
+        echo "/usr/local/ps2dev/ee/bin"          >> $GITHUB_PATH
+        echo "/usr/local/ps2dev/iop/bin"         >> $GITHUB_PATH
+        echo "/usr/local/ps2dev/dvp/bin"         >> $GITHUB_PATH
+        echo "/usr/local/ps2dev/ps2sdk/bin"      >> $GITHUB_PATH
+
+    - name: Verify toolchain
+      run: |
+        which ee-gcc
+        ee-gcc --version
+        echo "Toolchain OK"
+
+    - name: Compile ELF
+      run: |
+        make clean || true
+        make
+        ls -lh CaptainTsubasa2.elf
+
+    - name: Build ISO
+      run: |
+        mkdir -p iso_staging
+        cp CaptainTsubasa2.elf iso_staging/CPTSUBASA.ELF
+        cp SYSTEM.CNF iso_staging/
+        genisoimage \
+          -o CaptainTsubasa2.iso \
+          -V "CAPTTSUBASA2" \
+          -publisher "Fan-Made-Project" \
+          -input-charset iso8859-1 \
+          iso_staging/
+        ls -lh CaptainTsubasa2.iso
+
+    - name: Upload ISO
+      uses: actions/upload-artifact@v4
+      with:
+        name: CaptainTsubasa2-PS2-ISO
+        path: CaptainTsubasa2.iso
+        retention-days: 90
+
+    - name: Upload ELF
+      uses: actions/upload-artifact@v4
+      with:
+        name: CaptainTsubasa2-ELF
+        path: CaptainTsubasa2.elf
+        retention-days: 90
