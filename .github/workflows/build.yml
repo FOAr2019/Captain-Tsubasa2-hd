@@ -15,11 +15,36 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Install genisoimage
-      run: apk add --no-cache genisoimage cdrkit || apt-get install -y genisoimage || true
+    - name: Find ee-gcc location
+      run: |
+        find / -name "ee-gcc" 2>/dev/null || echo "not found"
+        echo "PATH=$PATH"
+        ls /usr/local/ || true
+        ls /ps2dev/ || true
+        ls /opt/ || true
+
+    - name: Setup PATH
+      run: |
+        EE_GCC=$(find / -name "ee-gcc" 2>/dev/null | head -1)
+        echo "Found at: $EE_GCC"
+        EE_DIR=$(dirname $EE_GCC)
+        echo "$EE_DIR" >> $GITHUB_PATH
+        PS2DEV_ROOT=$(dirname $(dirname $EE_DIR))
+        echo "PS2DEV=$PS2DEV_ROOT"       >> $GITHUB_ENV
+        echo "PS2SDK=$PS2DEV_ROOT/ps2sdk" >> $GITHUB_ENV
+        echo "$PS2DEV_ROOT/bin"           >> $GITHUB_PATH
+        echo "$PS2DEV_ROOT/ee/bin"        >> $GITHUB_PATH
+        echo "$PS2DEV_ROOT/iop/bin"       >> $GITHUB_PATH
+        echo "$PS2DEV_ROOT/dvp/bin"       >> $GITHUB_PATH
 
     - name: Verify toolchain
-      run: ee-gcc --version
+      run: |
+        ee-gcc --version
+        echo "PS2DEV=$PS2DEV"
+        echo "PS2SDK=$PS2SDK"
+
+    - name: Install genisoimage
+      run: apk add --no-cache genisoimage || apt-get install -y genisoimage || true
 
     - name: Compile ELF
       run: |
